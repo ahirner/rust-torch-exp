@@ -1,6 +1,11 @@
+extern crate opencv;
+extern crate tch;
+
 use opencv::core;
 use opencv::videoio;
 use opencv::highgui;
+
+use tch::Tensor;
 
 fn run(dev: i32, winname: &str) -> opencv::Result<()> {
 
@@ -40,4 +45,7 @@ fn main() {
     println!("Hello, world!");
 
     run(0, "test").unwrap();
+
+    let t = Tensor::of_slice(&[10,10]);
+    println!("I can print tensors like {:?}", t);
 }
