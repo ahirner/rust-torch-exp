@@ -1,15 +1,16 @@
-#[feature(async_await)]
 extern crate opencv;
 extern crate tch;
 extern crate tokio;
+
+use std::env;
+use std::error::Error;
 
 use opencv::core;
 use opencv::highgui;
 use opencv::videoio;
 
-use tokio::prelude::*;
-
 use tch::Tensor;
+
 
 struct CameraCV {
     cam: videoio::VideoCapture,
@@ -77,13 +78,22 @@ impl Iterator for CameraCV {
     }
 }
 
-fn main() {
+
+async fn run_stream() -> Result<(), Box<dyn Error>> {
+    println!("I'm in async");
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Hello, world!");
 
     let cam = CameraCV::open(0).expect("Cannot open camera");
 
     for img in cam {
-        highgui::imshow("threaded", &img.unwrap()).unwrap();
+        let img_ok = img?;
+
+        highgui::imshow("threaded", &img_ok)?;
 
         let key = highgui::wait_key(1).unwrap();
         if key == 27 {
@@ -93,4 +103,8 @@ fn main() {
 
     let t = Tensor::of_slice(&[10, 10]);
     println!("I can print tensors like {:?}", t);
+
+    let _async_res = run_stream().await?;
+
+    Ok(())
 }
