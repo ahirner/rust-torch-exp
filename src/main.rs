@@ -1,16 +1,18 @@
 #[feature(async_await)]
 extern crate opencv;
 extern crate tch;
+extern crate tokio;
 
 use opencv::core;
 use opencv::highgui;
 use opencv::videoio;
 
+use tokio::prelude::*;
+
 use tch::Tensor;
 
 struct CameraCV {
     cam: videoio::VideoCapture,
-    buf: core::Mat,
 }
 
 impl CameraCV {
@@ -21,23 +23,12 @@ impl CameraCV {
             let msg = format!("Cannot open device {}", device);
             return Err(opencv::Error::new(0, String::from(msg)));
         }
-        let mut buf = core::Mat::default()?;
 
-        Ok(CameraCV { cam, buf })
+        Ok(CameraCV { cam })
     }
-}
 
-// Cannot use Iterators for streaming easily without GADTs:
-// https://stackoverflow.com/questions/30422177/how-do-i-write-an-iterator-that-returns
-// -references-to-itself
-// http://lukaskalbertodt.github.io/2018/08/03/solving-the-generalized-streaming-iterator-problem-without-gats.html
-
-impl Iterator for CameraCV {
-    type Item = opencv::Result<&core::Mat>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // Why is there no ? for Some(Err)
-        let res = self.cam.read(&mut self.buf);
+    fn read_one(&mut self, buf: &mut core::Mat) -> Option<Result<(), opencv::Error>> {
+        let res = self.cam.read(buf);
 
         match res {
             Err(e) => {
@@ -51,7 +42,7 @@ impl Iterator for CameraCV {
             }
         }
 
-        let size = self.buf.size();
+        let size = buf.size();
         match size {
             Err(e) => return Some(Err(e)),
             Ok(size) => {
@@ -65,7 +56,24 @@ impl Iterator for CameraCV {
             }
         }
 
-        Some(Ok(&self.buf))
+        Some(Ok(()))
+    }
+}
+
+impl Iterator for CameraCV {
+    // Cannot use Iterators for streaming easily without GADTs (we allocate a copy on read instead)
+    // https://stackoverflow.com/questions/30422177/how-do-i-write-an-iterator-that-returns
+    // -references-to-itself
+    // http://lukaskalbertodt.github.io/2018/08/03/solving-the-generalized-streaming-iterator-problem-without-gats.html
+
+    type Item = opencv::Result<core::Mat>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut buf = core::Mat::default().unwrap();
+        let _res = self.read_one(&mut buf)?;
+
+        let buf_copied = buf.clone().unwrap();
+        return Some(Ok(buf_copied));
     }
 }
 
