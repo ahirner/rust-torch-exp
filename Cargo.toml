@@ -8,6 +8,6 @@ edition = "2018"
 
 [dependencies]
 opencv = {version = "0.22.1", default-features = false, features = ["opencv-41"]}
-tch = {git = "https://github.com/LaurentMazare/tch-rs.git"}
+tch = {git = "https://github.com/LaurentMazare/tch-rs.git", rev = "81f6215c"}
 # Add tokio master to include process, would be tokio = "0.2.0-alpha.5"
 tokio = {git = "https://github.com/tokio-rs/tokio.git"}
