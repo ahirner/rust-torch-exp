@@ -186,6 +186,8 @@ fn tensor_into(t: &Tensor) -> core::Mat {
     // ... so we have to copy
     let mut mat = unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32,
                                                     dtype).unwrap()  };
+
+    // Todo: something's not sound as only 1/3 is copied after transform but add last_dim panics
     let num_el = (shape[0] * shape[1]) as usize;
     t.copy_data::<u8>(mat.data_typed_mut().unwrap(), num_el);
 
@@ -208,9 +210,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for img in gen {
 
-        let tens: Tensor = tensor_from(img);
+        let mut tens: Tensor = tensor_from(img);
+        tens = tens.transpose(2,0).to_kind(tch::Kind::Float).unsqueeze(0);
         println!("I can print tensors like {:?}", tens);
-        let mat = tensor_into(&tens);
+
+        tens.upsample_bilinear2d_out(&tens, &[200,200], true);
+
+        let img_tens = tens.to_kind(tch::Kind::Uint8).squeeze1(0).transpose(0, 2);
+
+        let mat = tensor_into(&img_tens);
         println!("I can convert tensors to {:?}", mat.size().unwrap());
         highgui::imshow("generated", &mat)?;
 
