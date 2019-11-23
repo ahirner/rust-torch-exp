@@ -69,7 +69,7 @@ impl Iterator for CameraCV {
         let _res = self.read_one(&mut buf)?;
 
         let buf_copied = buf.clone().unwrap();
-        return Some(Ok(buf_copied));
+        Some(Ok(buf_copied))
     }
 }
 
@@ -133,7 +133,7 @@ fn kind_to_dtype(k: tch::Kind, last_dim: i64) -> i32 {
         }
 }
 
-fn tensor_from(mat: core::Mat) -> Tensor {
+fn tensor_from(mat: &core::Mat) -> Tensor {
 
     let size = mat.size().unwrap();
     let chans = mat.channels().unwrap(); // Todo: does that return 0 or 1 for grayscale?
@@ -210,9 +210,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for img in gen {
 
-        let mut tens: Tensor = tensor_from(img);
+        let mut tens: Tensor = tensor_from(&img);
+        highgui::imshow("orig", &img)?;
+
         tens = tens.transpose(2,0).to_kind(tch::Kind::Float).unsqueeze(0);
         println!("I can print tensors like {:?}", tens);
+
 
         tens.upsample_bilinear2d_out(&tens, &[200,200], true);
 
