@@ -42,10 +42,7 @@ impl CameraCV {
             Err(e) => return Some(Err(e)),
             Ok(size) => {
                 if size.width <= 0 {
-                    eprintln!(
-                        "Camera produced bad image with size: {}x{}",
-                        size.width, size.height
-                    );
+                    eprintln!("Camera produced bad image with size: {:?}", size);
                     return None;
                 }
                 return Some(Ok(size));
@@ -55,19 +52,18 @@ impl CameraCV {
 }
 
 impl Iterator for CameraCV {
-    // Cannot use Iterators for streaming easily without GADTs (we allocate a copy on read instead)
+    // Cannot use Iterators for streaming easily without GADTs (we allocate a clone on read instead)
     // https://stackoverflow.com/questions/30422177/how-do-i-write-an-iterator-that-returns
     // -references-to-itself
     // http://lukaskalbertodt.github.io/2018/08/03/solving-the-generalized-streaming-iterator-problem-without-gats.html
-
     type Item = opencv::Result<core::Mat>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut buf = core::Mat::default().unwrap();
         let _res = self.read_one(&mut buf)?;
 
-        let buf_copied = buf.clone().unwrap();
-        Some(Ok(buf_copied))
+        let buf_cloned = buf.clone();
+        Some(buf_cloned)
     }
 }
 
@@ -129,14 +125,10 @@ fn tensor_from(mat: &core::Mat) -> Tensor {
     let chans = mat.channels().unwrap(); // Todo: does that return 0 or 1 for grayscale?
     let data_pointer = mat.data_typed().unwrap();
     let dtype_cv = mat.typ().unwrap();
-    let dtype_tch = dtype_to_kind(dtype_cv);
+    let kind_tch = dtype_to_kind(dtype_cv);
 
-    println!(
-        "S {:?} C {:?} K {:?} D {:?}",
-        size, chans, dtype_tch, dtype_cv
-    );
     let shape = [size.height as i64, size.width as i64, chans as i64];
-    Tensor::of_data_size(data_pointer, &shape, dtype_tch)
+    Tensor::of_data_size(data_pointer, &shape, kind_tch)
 }
 
 fn tensor_into(t: &Tensor) -> core::Mat {
@@ -172,11 +164,11 @@ fn tensor_into(t: &Tensor) -> core::Mat {
 
     let mut mat =
         unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32, dtype) }.unwrap();
-    assert!(true, mat.is_continuous().unwrap());
+    assert!(mat.is_continuous().unwrap());
 
     // Note: Mat::data_typed_mut() returns the wrong slice length, namely without element size,
     // hence for 3 channel images 1/3 of its length. Thus, copy_data asserts an error. We work
-    // around that by calculating the number of bytes manually and copying with this data.
+    // around that by calculating the number of bytes manually and copying with this type.
     //println!("DEST {:?}", mat);
     let num_bytes = (shape[0] * shape[1] * mat.elem_size().unwrap() as i64) as usize;
     let dest_buf =

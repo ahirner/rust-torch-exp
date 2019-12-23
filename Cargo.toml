@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 opencv = {version = "0.22.1", default-features = false, features = ["opencv-41"]}
 tch = {git = "https://github.com/LaurentMazare/tch-rs.git", rev = "3704b1efd992c59f5a8eb76b0a7347a01aedc5ba"}
-genawaiter = "0.2.1"
+genawaiter = "0.2.2"
