@@ -3,7 +3,6 @@ use opencv::highgui;
 use opencv::videoio;
 
 use genawaiter::{generator_mut, stack::Co};
-use opencv::core::Size;
 use tch::Tensor;
 
 struct CameraCV {
@@ -22,7 +21,7 @@ impl CameraCV {
         Ok(CameraCV { cam })
     }
 
-    fn read_one(&mut self, buf: &mut core::Mat) -> Option<Result<Size, opencv::Error>> {
+    fn read_one(&mut self, buf: &mut core::Mat) -> Option<Result<core::Size, opencv::Error>> {
         let res = self.cam.read(buf);
 
         match res {
@@ -52,18 +51,12 @@ impl CameraCV {
 }
 
 impl Iterator for CameraCV {
-    // Cannot use Iterators for streaming easily without GADTs (we allocate a clone on read instead)
-    // https://stackoverflow.com/questions/30422177/how-do-i-write-an-iterator-that-returns
-    // -references-to-itself
-    // http://lukaskalbertodt.github.io/2018/08/03/solving-the-generalized-streaming-iterator-problem-without-gats.html
     type Item = opencv::Result<core::Mat>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut buf = core::Mat::default().unwrap();
         let _res = self.read_one(&mut buf)?;
-
-        let buf_cloned = buf.clone();
-        Some(buf_cloned)
+        Some(Ok(buf))
     }
 }
 
