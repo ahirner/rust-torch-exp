@@ -82,26 +82,6 @@ fn tensor_into(t: &Tensor) -> core::Mat {
 
     let dtype = kind_to_dtype(t.kind(), chans);
 
-    // Todo: passing mut pointer from Tensor to Mat constructor leads to invalid mem access, also
-    // what about reference count, strides etc..
-    /*
-    #[repr(C)]
-    pub struct C_tensor {
-        _private: [u8; 0],
-    }
-    struct UglyTensor
-    {
-        pub c_tensor: *mut C_tensor,
-    }
-    let t_cont = t.contiguous(); // Todo: what's the conversion for non contigous tensors?
-    let mut t_exposed: UglyTensor = unsafe { std::mem::transmute(t_cont )};
-    let mut ptr = unsafe {std::mem::transmute(t_exposed.c_tensor)};
-    let mat = core::Mat::new_rows_cols_with_data(shape[0] as i32, shape[1] as i32,
-                                                 dtype,
-                                                 ptr,
-                                                 core::Mat_AUTO_STEP);
-    */
-
     let mut mat =
         unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32, dtype) }.unwrap();
     assert!(mat.is_continuous().unwrap());
