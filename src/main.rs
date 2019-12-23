@@ -2,10 +2,9 @@ use opencv::core;
 use opencv::highgui;
 use opencv::videoio;
 
-use genawaiter::{generator_mut, stack::{Co}};
+use genawaiter::{generator_mut, stack::Co};
+use opencv::core::Size;
 use tch::Tensor;
-use opencv::core::{DataType};
-
 
 struct CameraCV {
     cam: videoio::VideoCapture,
@@ -13,7 +12,7 @@ struct CameraCV {
 
 impl CameraCV {
     fn open(device: i32) -> Result<CameraCV, opencv::Error> {
-        let mut cam = videoio::VideoCapture::new_with_backend(device, videoio::CAP_ANY)?;
+        let cam = videoio::VideoCapture::new_with_backend(device, videoio::CAP_ANY)?;
         let opened = videoio::VideoCapture::is_opened(&cam)?;
         if !opened {
             let msg = format!("Cannot open device {}", device);
@@ -23,7 +22,7 @@ impl CameraCV {
         Ok(CameraCV { cam })
     }
 
-    fn read_one(&mut self, buf: &mut core::Mat) -> Option<Result<(), opencv::Error>> {
+    fn read_one(&mut self, buf: &mut core::Mat) -> Option<Result<Size, opencv::Error>> {
         let res = self.cam.read(buf);
 
         match res {
@@ -49,10 +48,9 @@ impl CameraCV {
                     );
                     return None;
                 }
+                return Some(Ok(size));
             }
         }
-
-        Some(Ok(()))
     }
 }
 
@@ -73,12 +71,9 @@ impl Iterator for CameraCV {
     }
 }
 
-
-
 /// Convert core::Mat types to torch Kinds,
 /// this doesn't take into account the number of channels (use .channels to get this dimensionality)
-fn Datatype_to_Kind(dtype: i32) -> tch::Kind
-{
+fn dtype_to_kind(dtype: i32) -> tch::Kind {
     /*
     pub const CV_16SC1: i32 = 0x3; // 3
     pub const CV_16SC2: i32 = 0xb; // 11
@@ -112,123 +107,112 @@ fn Datatype_to_Kind(dtype: i32) -> tch::Kind
 
     use opencv::core::*;
 
-    match dtype
-        {
-            CV_8SC1 | CV_8SC2 | CV_8SC3 | CV_8SC4 => {tch::Kind::Int8},
-            CV_8UC1 | CV_8UC2 | CV_8UC3 | CV_8UC4 => {tch::Kind::Uint8},
-            CV_32FC1 | CV_32FC2 | CV_32FC3 | CV_32FC4 => {tch::Kind::Float},
-            _ => panic!("Datatype CV2 not supported {}", dtype),
-        }
-
+    match dtype {
+        CV_8SC1 | CV_8SC2 | CV_8SC3 | CV_8SC4 => tch::Kind::Int8,
+        CV_8UC1 | CV_8UC2 | CV_8UC3 | CV_8UC4 => tch::Kind::Uint8,
+        CV_32FC1 | CV_32FC2 | CV_32FC3 | CV_32FC4 => tch::Kind::Float,
+        _ => todo!("Datatype CV2 not supported {}", dtype),
+    }
 }
 
-fn kind_to_dtype(k: tch::Kind, last_dim: i64) -> i32 {
-
+fn kind_to_dtype(k: tch::Kind, chans: i64) -> i32 {
     use opencv::core::*;
 
-    match(k, last_dim)
-        {
-            (tch::Kind::Uint8, 3) => CV_8UC3,
-            _ => panic!("TCH Kind to CV2 not supported {:?}", k),
-        }
+    match (k, chans) {
+        (tch::Kind::Uint8, 3) => CV_8UC3,
+        _ => todo!("TCH Kind to CV2 not supported {:?}", k),
+    }
 }
 
 fn tensor_from(mat: &core::Mat) -> Tensor {
-
     let size = mat.size().unwrap();
     let chans = mat.channels().unwrap(); // Todo: does that return 0 or 1 for grayscale?
     let data_pointer = mat.data_typed().unwrap();
     let dtype_cv = mat.typ().unwrap();
-    let dtype_tch = Datatype_to_Kind(dtype_cv);
+    let dtype_tch = dtype_to_kind(dtype_cv);
 
+    println!(
+        "S {:?} C {:?} K {:?} D {:?}",
+        size, chans, dtype_tch, dtype_cv
+    );
     let shape = [size.height as i64, size.width as i64, chans as i64];
     Tensor::of_data_size(data_pointer, &shape, dtype_tch)
-
 }
 
-
 fn tensor_into(t: &Tensor) -> core::Mat {
-
     let shape = t.size();
     let ndim = shape.len();
-    let last_dim = match ndim {
+    let chans = match ndim {
         2 => 1,
-        3 => shape[ndim-1],
-        _ => panic!("Only 2- or 3-dimensional Tensor supported, got {:?}", shape)
+        3 => shape[ndim - 1],
+        _ => panic!("Only 2- or 3-dimensional Tensor supported, got {:?}", shape),
     };
 
-    let dtype = kind_to_dtype(t.kind(), last_dim);
+    let dtype = kind_to_dtype(t.kind(), chans);
 
-    // Todo: this mut pointer passing leads to invalid mem access
+    // Todo: passing mut pointer from Tensor to Mat constructor leads to invalid mem access, also
+    // what about reference count, strides etc..
     /*
-
     #[repr(C)]
     pub struct C_tensor {
         _private: [u8; 0],
     }
-
     struct UglyTensor
     {
         pub c_tensor: *mut C_tensor,
     }
-
-    let t_cont = t.contiguous(); // Todo: lazy contigous instead of deriving steps
-
+    let t_cont = t.contiguous(); // Todo: what's the conversion for non contigous tensors?
     let mut t_exposed: UglyTensor = unsafe { std::mem::transmute(t_cont )};
     let mut ptr = unsafe {std::mem::transmute(t_exposed.c_tensor)};
-
     let mat = core::Mat::new_rows_cols_with_data(shape[0] as i32, shape[1] as i32,
                                                  dtype,
                                                  ptr,
                                                  core::Mat_AUTO_STEP);
     */
 
-    // ... so we have to copy
-    let mut mat = unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32,
-                                                    dtype).unwrap()  };
+    let mut mat =
+        unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32, dtype) }.unwrap();
+    assert!(true, mat.is_continuous().unwrap());
 
-    // Todo: something's not sound as only 1/3 is copied after transform but add last_dim panics
-    let num_el = (shape[0] * shape[1]) as usize;
-    t.copy_data::<u8>(mat.data_typed_mut().unwrap(), num_el);
+    // Note: Mat::data_typed_mut() returns the wrong slice length, namely without element size,
+    // hence for 3 channel images 1/3 of its length. Thus, copy_data asserts an error. We work
+    // around that by calculating the number of bytes manually and copying with this data.
+    //println!("DEST {:?}", mat);
+    let num_bytes = (shape[0] * shape[1] * mat.elem_size().unwrap() as i64) as usize;
+    let dest_buf =
+        unsafe { std::slice::from_raw_parts_mut(mat.data_mut().unwrap() as *mut u8, num_bytes) };
+    t.copy_data::<u8>(dest_buf, num_bytes);
 
     mat
 }
 
-
-async fn imgs(co: Co<'_, core::Mat>) {
+async fn camera_imgs(co: Co<'_, core::Mat>) {
     let cam = CameraCV::open(0).expect("Cannot open camera");
     for img in cam {
         co.yield_(img.unwrap()).await;
     }
-
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Hello, world!");
-
-    generator_mut!(gen, imgs);
+    generator_mut!(gen, camera_imgs);
 
     for img in gen {
-
         let mut tens: Tensor = tensor_from(&img);
         highgui::imshow("orig", &img)?;
 
-        tens = tens.transpose(2,0).to_kind(tch::Kind::Float).unsqueeze(0);
-        println!("I can print tensors like {:?}", tens);
-
-
-        tens.upsample_bilinear2d_out(&tens, &[200,200], true);
+        tens = tens.transpose(2, 0).to_kind(tch::Kind::Float).unsqueeze(0);
+        println!("Tensor from img {:?}", tens);
+        tens = tens.upsample_bilinear2d_out(&tens, &[320, 240], true);
 
         let img_tens = tens.to_kind(tch::Kind::Uint8).squeeze1(0).transpose(0, 2);
-
         let mat = tensor_into(&img_tens);
-        println!("I can convert tensors to {:?}", mat.size().unwrap());
-        highgui::imshow("generated", &mat)?;
+        println!("Mat from tens {:?}", mat);
 
+        highgui::imshow("processed", &mat)?;
         let key = highgui::wait_key(1).unwrap();
-                if key == 27 {
-                    break;
-                }
+        if key == 27 {
+            break;
+        }
     }
 
     Ok(())
