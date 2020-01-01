@@ -84,7 +84,10 @@ fn tensor_into(t: &Tensor) -> core::Mat {
 
     let mut mat =
         unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32, dtype) }.unwrap();
-    assert!(mat.is_continuous().unwrap());
+    assert!(mat.is_continuous().expect(
+        "Underlying opencv Mat needs to be continuous for \
+         Tensor::copy_data"
+    ));
 
     // Note: Mat::data_typed_mut() returns the wrong slice length, namely without element size,
     // hence for 3 channel images 1/3 of its length. Thus, copy_data asserts an error. We work
@@ -98,6 +101,27 @@ fn tensor_into(t: &Tensor) -> core::Mat {
     mat
 }
 
+trait FromMat {
+    fn from_mat(mat: &core::Mat) -> Self;
+}
+
+trait ToMat {
+    fn to_mat(self) -> core::Mat;
+}
+
+impl FromMat for Tensor {
+    fn from_mat(mat: &core::Mat) -> Self {
+        tensor_from(mat)
+    }
+}
+
+impl ToMat for Tensor {
+    // why self cannot be ref?
+    fn to_mat(self) -> core::Mat {
+        tensor_into(&self)
+    }
+}
+
 async fn camera_imgs(co: Co<'_, core::Mat>) {
     let cam = CameraCV::open(0).expect("Cannot open camera");
     for img in cam {
@@ -109,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     generator_mut!(gen, camera_imgs);
 
     for img in gen {
-        let mut tens: Tensor = tensor_from(&img);
+        let mut tens: Tensor = Tensor::from_mat(&img);
         highgui::imshow("orig", &img)?;
 
         tens = tens.transpose(2, 0).to_kind(tch::Kind::Float).unsqueeze(0);
@@ -117,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tens = tens.upsample_bilinear2d_out(&tens, &[320, 240], true);
 
         let img_tens = tens.to_kind(tch::Kind::Uint8).squeeze1(0).transpose(0, 2);
-        let mat = tensor_into(&img_tens);
+        let mat = img_tens.to_mat();
         println!("Mat from tens {:?}", mat);
 
         highgui::imshow("processed", &mat)?;
