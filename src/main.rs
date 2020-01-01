@@ -98,7 +98,8 @@ fn tensor_into(t: &Tensor) -> core::Mat {
         unsafe { std::slice::from_raw_parts_mut(mat.data_mut().unwrap() as *mut u8, num_bytes) };
     t.copy_data::<u8>(dest_buf, num_bytes);
 
-    mat
+    // Todo: need other than u8 types
+    // Note: this is how conversion is done from C++ Mat: https://pytorch.org/tutorials/advanced/torch_script_custom_ops.html#implementing-the-custom-operator-in-c
 }
 
 trait FromMat {
