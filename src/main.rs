@@ -3,6 +3,7 @@ mod cam;
 use cam::CameraCV;
 use opencv::core;
 use opencv::highgui;
+use opencv::prelude::*;
 
 use genawaiter::{generator_mut, stack::Co};
 use tch::Tensor;
@@ -63,10 +64,12 @@ fn kind_to_dtype(k: tch::Kind, chans: i64) -> i32 {
 fn tensor_from(mat: &core::Mat) -> Tensor {
     let size = mat.size().unwrap();
     let chans = mat.channels().unwrap(); // Todo: does that return 0 or 1 for grayscale?
-    let data_pointer = mat.data_typed().unwrap();
     let dtype_cv = mat.typ().unwrap();
-    let kind_tch = dtype_to_kind(dtype_cv);
 
+    // Note: data_typed::<Vec3b> -> &[Vec3b] cannot be implemented for kind for Tensor::of_slice
+    // hence we dance with the unsafe slice
+    let data_pointer = unsafe { mat.data_typed_unchecked() }.unwrap();
+    let kind_tch = dtype_to_kind(dtype_cv);
     let shape = [size.height as i64, size.width as i64, chans as i64];
     Tensor::of_data_size(data_pointer, &shape, kind_tch)
 }
@@ -94,8 +97,7 @@ fn tensor_into(t: &Tensor) -> core::Mat {
     // around that by calculating the number of bytes manually and copying with this type.
     //println!("DEST {:?}", mat);
     let num_bytes = (shape[0] * shape[1] * mat.elem_size().unwrap() as i64) as usize;
-    let dest_buf =
-        unsafe { std::slice::from_raw_parts_mut(mat.data_mut().unwrap() as *mut u8, num_bytes) };
+    let dest_buf = unsafe { std::slice::from_raw_parts_mut(mat.data_mut() as *mut u8, num_bytes) };
     t.copy_data::<u8>(dest_buf, num_bytes);
 
     // Todo: need other than u8 types

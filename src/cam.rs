@@ -1,5 +1,6 @@
-use opencv::core;
-use opencv::videoio;
+use opencv::prelude::*;
+use opencv::videoio::{VideoCapture, VideoCaptureTrait};
+use opencv::{core, videoio};
 
 pub struct CameraCV {
     cam: videoio::VideoCapture,
@@ -7,8 +8,8 @@ pub struct CameraCV {
 
 impl CameraCV {
     pub fn open(device: i32) -> Result<CameraCV, opencv::Error> {
-        let cam = videoio::VideoCapture::new_with_backend(device, videoio::CAP_ANY)?;
-        let opened = videoio::VideoCapture::is_opened(&cam)?;
+        let cam = VideoCapture::new(device, videoio::CAP_ANY)?;
+        let opened = cam.is_opened()?;
         if !opened {
             let msg = format!("Cannot open device {}", device);
             return Err(opencv::Error::new(0, String::from(msg)));
