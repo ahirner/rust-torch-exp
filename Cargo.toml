@@ -6,8 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-tch = {git = "https://github.com/LaurentMazare/tch-rs.git", rev = "3704b1efd992c59f5a8eb76b0a7347a01aedc5ba"}
+[dependencies.tch]
+git = "https://github.com/LaurentMazare/tch-rs.git"
+ref =  "1522a19ce8b361cb139e39654a5b712df22be3a0"
 
 [dependencies.opencv]
 version = "0.33"
