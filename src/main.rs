@@ -5,7 +5,6 @@ use opencv::core;
 use opencv::highgui;
 use opencv::prelude::*;
 
-use genawaiter::{generator_mut, stack::Co};
 use tch::Tensor;
 
 /// Convert core::Mat types to torch Kinds,
@@ -126,17 +125,11 @@ impl ToMat for Tensor {
     }
 }
 
-async fn camera_imgs(co: Co<'_, core::Mat>) {
-    let cam = CameraCV::open(0).expect("Cannot open camera");
-    for img in cam {
-        co.yield_(img.expect("Error reading camera image")).await;
-    }
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    generator_mut!(gen, camera_imgs);
+    let cam = CameraCV::open(0).expect("Cannot open camera");
 
-    for img in gen {
+    for img_maybe in cam {
+        let img = img_maybe?;
         let mut tens: Tensor = Tensor::from_mat(&img);
         highgui::imshow("orig", &img)?;
 

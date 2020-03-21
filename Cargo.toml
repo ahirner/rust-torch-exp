@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 tch = {git = "https://github.com/LaurentMazare/tch-rs.git", rev = "3704b1efd992c59f5a8eb76b0a7347a01aedc5ba"}
-genawaiter = "0.2.2"
 
 [dependencies.opencv]
 version = "0.33"
