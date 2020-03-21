@@ -7,12 +7,41 @@ pub struct CameraCV {
 }
 
 impl CameraCV {
-    pub fn open(device: i32) -> Result<CameraCV, opencv::Error> {
-        let cam = VideoCapture::new(device, videoio::CAP_ANY)?;
+    pub fn open(
+        device: i32,
+        width: Option<usize>,
+        height: Option<usize>,
+    ) -> Result<CameraCV, opencv::Error> {
+        let mut cam = VideoCapture::new(device, videoio::CAP_ANY)?;
         let opened = cam.is_opened()?;
         if !opened {
             let msg = format!("Cannot open device {}", device);
             return Err(opencv::Error::new(0, String::from(msg)));
+        }
+
+        // Set dimensions
+        if let Some(w) = width {
+            cam.set(opencv::videoio::CAP_PROP_FRAME_WIDTH, w as f64).unwrap();
+            let true_width =
+                cam.get(opencv::videoio::CAP_PROP_FRAME_WIDTH).unwrap().round() as usize;
+            if w != true_width {
+                return Err(opencv::Error::new(
+                    0,
+                    format!("Desired width {} wasn't set, got {}", w, true_width),
+                ));
+            }
+        }
+
+        if let Some(h) = height {
+            cam.set(opencv::videoio::CAP_PROP_FRAME_HEIGHT, h as f64).unwrap();
+            let true_height =
+                cam.get(opencv::videoio::CAP_PROP_FRAME_HEIGHT).unwrap().round() as usize;
+            if h != true_height {
+                return Err(opencv::Error::new(
+                    0,
+                    format!("Desired height {} wasn't set, got {}", h, true_height),
+                ));
+            }
         }
 
         Ok(CameraCV { cam })

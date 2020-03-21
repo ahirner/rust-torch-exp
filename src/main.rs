@@ -126,7 +126,7 @@ impl ToMat for Tensor {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cam = CameraCV::open(0).expect("Cannot open camera");
+    let cam = CameraCV::open(0, None, None).expect("Cannot open camera");
 
     for img_maybe in cam {
         let img = img_maybe?;
