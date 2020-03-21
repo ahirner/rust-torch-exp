@@ -100,6 +100,7 @@ fn tensor_into(t: &Tensor) -> core::Mat {
 
     // Todo: need other than u8 types
     // Note: this is how conversion is done from C++ Mat: https://pytorch.org/tutorials/advanced/torch_script_custom_ops.html#implementing-the-custom-operator-in-c
+    mat
 }
 
 trait FromMat {
