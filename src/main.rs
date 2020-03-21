@@ -86,10 +86,10 @@ fn tensor_into(t: &Tensor) -> core::Mat {
 
     let mut mat =
         unsafe { core::Mat::new_rows_cols(shape[0] as i32, shape[1] as i32, dtype) }.unwrap();
-    assert!(mat.is_continuous().expect(
-        "Underlying opencv Mat needs to be continuous for \
-         Tensor::copy_data"
-    ));
+    assert!(
+        mat.is_continuous().unwrap(),
+        "Underlying opencv Mat needs to be continuous for Tensor::copy_data"
+    );
 
     // Note: Mat::data_typed_mut() returns the wrong slice length, namely without element size,
     // hence for 3 channel images 1/3 of its length. Thus, copy_data asserts an error. We work
