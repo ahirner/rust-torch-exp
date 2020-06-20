@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         tens = tens.transpose(2, 0).to_kind(tch::Kind::Float).unsqueeze(0);
         println!("Tensor from img {:?}", tens);
-        tens = tens.upsample_bilinear2d_out(&tens, &[320, 240], true);
+        tens = tens.upsample_bilinear2d_out(&tens, &[320, 240], true, None, None);
 
         let img_tens = tens.to_kind(tch::Kind::Uint8).squeeze1(0).transpose(0, 2);
         let mat = img_tens.to_mat();

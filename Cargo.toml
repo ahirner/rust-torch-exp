@@ -8,9 +8,9 @@ edition = "2018"
 
 [dependencies.tch]
 git = "https://github.com/LaurentMazare/tch-rs.git"
-ref =  "1522a19ce8b361cb139e39654a5b712df22be3a0"
+ref =  "a4fab2306e194a542d3818bf34d7c1a22e6d65c3"
 
 [dependencies.opencv]
-version = "0.33"
+version = "0.41"
 default-features = false
 features = ["opencv-4", "buildtime-bindgen"]
